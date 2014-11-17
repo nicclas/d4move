@@ -1,0 +1,283 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>D4D Senegal</title>
+    <style>
+      html, body, #map-div {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+    </style>
+
+    <script src="http://maps.googleapis.com/maps/api/js?sensor=false"></script>
+    <script src="moveLatLon.js"></script>
+    <script src="style.js"></script>
+    <script src="lib/detector.js"></script>
+    <script src="lib/dat.gui.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/three.js/r66/three.js"></script>
+    <script src="threejs-layer.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+
+
+    <script>
+
+   Date.prototype.format = function(format) //author: meizz
+    {
+      var o = {
+	"M+" : this.getMonth()+1, //month
+	"d+" : this.getDate(),    //day
+	"h+" : this.getHours(),   //hour
+	"m+" : this.getMinutes(), //minute
+	"s+" : this.getSeconds(), //second
+	"q+" : Math.floor((this.getMonth()+3)/3),  //quarter
+	"S" : this.getMilliseconds() //millisecond
+      }
+
+      if(/(y+)/.test(format)) format=format.replace(RegExp.$1,
+						    (this.getFullYear()+"").substr(4 - RegExp.$1.length));
+      for(var k in o)if(new RegExp("("+ k +")").test(format))
+		       format = format.replace(RegExp.$1,
+					       RegExp.$1.length==1 ? o[k] :
+					       ("00"+ o[k]).substr((""+ o[k]).length));
+      return format;
+    }
+
+
+     var numFrames = jsonStruct.segments.length-1;
+     var currentFrame;
+     var previousFrame = -1;
+
+     var Anim = function(){
+       this.size = 0.01;
+       this.timeFrame = 1;
+       this.speed = 0;
+     }
+     
+	  var lastTime = 0;
+	  var totalElapsedTime = 0;
+
+     var aframe = new Anim();
+
+
+     material = new THREE.MeshBasicMaterial({
+       color: 0x802020,
+       opacity: 0.5,
+       blending: THREE.AdditiveBlending,
+       side: THREE.DoubleSide,
+       transparent: true
+	   });
+	    
+
+     var tjl = null;
+      var drawed = 0;
+
+     function update(){
+	  
+       aframe.timeFrame = Math.floor(aframe.timeFrame);
+       var currentDate = (new Date((new Date(2013,00,07)).getTime() + 60000*60*(aframe.timeFrame-1)).format("yyyy-MM-dd hh:mm"));
+       $('#displayTime').text(currentDate+" ("+drawed+" moves)");
+       
+       if (tjl != null){
+	 tjl.render();
+       }else{
+	 console.log("no renderer");
+       }
+       // Iterate over all controllers
+       for (var i in gui.__controllers) {
+	 gui.__controllers[i].updateDisplay();
+       }
+       
+     }
+	function advanceFrame() {
+	  var fps = aframe.speed;
+
+	  var doUpdate = false;
+	  if(fps > 0){
+	    var timeNow = new Date().getTime();
+	    if (lastTime != 0) {
+	      var elapsed = timeNow - lastTime;
+	      totalElapsedTime += elapsed;
+	    }
+	    lastTime = timeNow;
+	    
+	    
+	    if (totalElapsedTime > 1000 / fps) {
+	      totalElapsedTime = 0;
+	      aframe.timeFrame = aframe.timeFrame + 1;
+	      doUpdate = true;
+	      if(aframe.timeFrame >= numFrames){
+		aframe.timeFrame = 1;
+	      }
+	    }
+	  }
+	  // Update timeFrame
+	  gui.__controllers[2].updateDisplay();
+	
+
+	  aframe.timeFrame = Math.floor(aframe.timeFrame);
+	  var currentDate = (new Date((new Date(2013,00,07)).getTime() + 60000*60*(aframe.timeFrame-1)).format("yyyy-MM-dd hh:mm"));
+	  $('#displayTime').text(currentDate+" ("+drawed+" moves)");
+	  return doUpdate
+	}
+
+     function r(){
+
+
+       if(aframe.speed == 0 || advanceFrame()){
+
+
+	 if(tjl != null){
+	   var removed = 0;
+	   var obj, i;
+	   for ( i = tjl.scene.children.length - 1; i >= 0 ; i -- ) {
+	     obj = tjl.scene.children[ i ];
+	     tjl.scene.remove(obj);
+	     removed++;
+	   }
+	   //	   console.log("Removed: "+removed+" objects");
+	 }
+
+//         console.log("Render: "+Date());
+
+         var frame = aframe.timeFrame;
+
+         console.log("Frame: "+frame+" Segments: "+(jsonStruct.segments[frame] - jsonStruct.segments[frame-1]));
+	 
+	 drawed = 0;
+	 geometry = new THREE.Geometry();
+	 var theface = 0;
+	 
+	 previousFrame = frame;
+
+	 for(var seg = jsonStruct.segments[frame-1]; seg < jsonStruct.segments[frame]; seg++){
+	   
+	   // console.log("Drawing segment: "+seg+" width "+(jsonStruct.segmentlength[seg+1]-jsonStruct.segmentlength[seg]-1)+" lines");
+	   //	   for (var point = jsonStruct.segmentlength[seg]; point < jsonStruct.segmentlength[seg+1]-1; point++){
+	   for (var point = jsonStruct.segmentlength[seg]; point < jsonStruct.segmentlength[seg+1]-1; point++){
+
+	     var i = 2*point;
+	     //	     console.log(i+": "+jsonStruct.latlng[i]+" "+jsonStruct.latlng[i+1]+" "+jsonStruct.latlng[i+2]+" "+jsonStruct.latlng[i+3]);
+	     var location = new google.maps.LatLng(jsonStruct.latlng[i+1], jsonStruct.latlng[i]);
+	     var vertexA = tjl.fromLatLngToVertex(location);
+	     
+	     var location = new google.maps.LatLng(jsonStruct.latlng[i+3], jsonStruct.latlng[i+2]);
+	     var vertexB = tjl.fromLatLngToVertex(location);
+	     
+	     var y1 = jsonStruct.latlng[i+1];
+	     var x1= jsonStruct.latlng[i];
+	   
+	     var y2 = jsonStruct.latlng[i+3];
+	     var x2= jsonStruct.latlng[i+2];
+	     
+	     var vx = x2-x1;
+	     var vy = y2-y1;
+	     
+	     var nvx = vy;
+	     var nvy = -vx;
+	     
+	     var normn = Math.sqrt(Math.pow(nvx,2) + Math.pow(nvy,2));
+	     
+	     var x3 = x2 + 1/normn*nvx*aframe.size;
+	     var y3 = y2 + 1/normn*nvy*aframe.size;
+	     
+	     var location = new google.maps.LatLng(y3, x3);
+	     var vertexC = tjl.fromLatLngToVertex(location);
+	     
+	     
+	     geometry.vertices.push(vertexA);
+	     geometry.vertices.push(vertexB);
+	     geometry.vertices.push(vertexC);
+	     
+	     geometry.faces.push( new THREE.Face3( theface, theface+1, theface+2 ) );
+	     
+	     
+	     var x4 = x1 + 1/normn*nvx*aframe.size;
+	     var y4 = y1 + 1/normn*nvy*aframe.size;
+	     
+	     var location = new google.maps.LatLng(y4, x4);
+	     var vertexD = tjl.fromLatLngToVertex(location);
+	     
+	     geometry.vertices.push(vertexA);
+	     geometry.vertices.push(vertexD);
+	     geometry.vertices.push(vertexC);
+	     
+	     geometry.faces.push( new THREE.Face3( theface+3, theface+4, theface+5 ) );
+	     
+	     theface += 3*2;
+
+	   }
+	     drawed++;
+	 }
+	 var mesh = new THREE.Mesh(geometry, material);
+	 
+	 tjl.add(mesh);
+	 
+	 if(tjl != null){
+	   tjl.renderer.render(tjl.scene, tjl.camera);
+	 }else{
+	   console.log("no renderer");
+	 }
+
+	  aframe.timeFrame = Math.floor(aframe.timeFrame);
+	  var currentDate = (new Date((new Date(2013,00,07)).getTime() + 60000*60*(aframe.timeFrame-1)).format("yyyy-MM-dd hh:mm"));
+       //	  var currentDate = (new Date((new Date(2011,11,07)).getTime() + (60000*60*aframe.timeFrame-1)).format("yyyy-MM-dd hh:mm"));
+	  $('#displayTime').text(currentDate+" ("+drawed+" moves)");
+       }	 
+     }
+     function init() {
+
+       if (!Detector.webgl) {
+	 Detector.addGetWebGLMessage();
+	 return;
+       }
+       
+
+        var container = document.getElementById('map-div');
+
+        var map = new google.maps.Map(container, {
+          zoom: 7,
+          mapTypeControl: false,
+          center: new google.maps.LatLng(15, -15),
+	      mapTypeId: google.maps.MapTypeId.ROADMAP,
+	  styles: styles
+        });
+
+	var viewFrame = 0;
+        var pCount = 0;
+           
+	  var lastTime = 0;
+	  var totalElapsedTime = 0;
+	  
+
+	  tjl = new ThreejsLayer({ map: map, render: r}, function(layer){
+          
+
+	    console.log("latlng size: "+ jsonStruct.latlng.length);
+	    console.log("segments size: "+ jsonStruct.segments.length);
+	    console.log("segmentslength size: "+ jsonStruct.segmentlength.length);
+	    
+	  });
+	
+       gui = new dat.GUI();
+       gui.add(aframe, 'size', 0.0005, 0.05).onChange(update);
+       gui.add(material, 'opacity', 0.1, 1).onChange(update);
+       gui.add(aframe, 'timeFrame', 1, numFrames-1).onChange(update);
+       gui.add(aframe, 'speed', { Manual: 0, Slow: 3, Fast: 10 } ).onChange(update);	
+
+	
+     }
+
+      document.addEventListener('DOMContentLoaded', init, false);
+    </script>
+
+  </head>
+
+  <body>
+    <div id="map-div"></div>
+	<div style="position: absolute; left: 120px; top: 26px; width: 800px;">
+	<div id="displayTime" style="font-size: 30px; font-family: verdana; color: #fff;"></div>
+	</div>
+  </body>
+</html>
